@@ -430,7 +430,8 @@ void GameController::add_player_movement_event_function_slot( const player_movem
 
 void GameController::assign_slots_to_events()
 {
-    add_player_movement_event_function_slot(_player->handle_movement);
+    //add_player_movement_event_function_slot(_player->handle_movement);
+    add_player_movement_event_function_slot( boost::bind(&Player::handle_movement, _player, _1)  );
 }
 
 void GameController::announce_player_move(player_movement_direction p_move_direction)
@@ -479,8 +480,8 @@ void GameController::update()
 
     for (it = _npcs.begin(); it != _npcs.end(); ++it)
     {
-        it->update(delta_time); // logic updates, like movement and whatnot.
-        it->draw(); // draw the latest NPC state.
+        (*it)->update(delta_time); // logic updates, like movement and whatnot.
+        (*it)->draw(); // draw the latest NPC state.
     }
 
     SDL_GL_SwapBuffers( );
