@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Space_Invaders" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin\Debug\Space_Invaders" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj\Debug\" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add directory="include" />
+					<Add directory="3rdparty\singleton" />
+					<Add directory="C:\CompilingCplusplus\BoostLib\boost_1_51" />
+				</Compiler>
+				<Linker>
+					<Add library="lib\libboost_system-mgw46-mt-1_52.a" />
+					<Add directory="C:\CompilingCplusplus\GITRepository\Game_Events\Space_Invaders(Signals)\Space_Invaders\lib" />
+				</Linker>
+			</Target>
+			<Target title="Release">
+				<Option output="bin\Release\Space_Invaders" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj\Release\" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add directory="$(#sdl.include)" />
+		</Compiler>
+		<Linker>
+			<Add library="mingw32" />
+			<Add library="SDLmain" />
+			<Add library="SDL.dll" />
+			<Add library="user32" />
+			<Add library="gdi32" />
+			<Add library="winmm" />
+			<Add library="dxguid" />
+			<Add directory="$(#sdl.lib)" />
+		</Linker>
+		<Unit filename="3rdparty\singleton\boost\utility\detail\member_dereference.hpp" />
+		<Unit filename="3rdparty\singleton\boost\utility\detail\restricted.hpp" />
+		<Unit filename="3rdparty\singleton\boost\utility\detail\singleton_manager.hpp" />
+		<Unit filename="3rdparty\singleton\boost\utility\mutexed_singleton.hpp" />
+		<Unit filename="3rdparty\singleton\boost\utility\singleton.hpp" />
+		<Unit filename="3rdparty\singleton\boost\utility\thread_specific_singleton.hpp" />
+		<Unit filename="cb.bmp" />
+		<Unit filename="src\main.cpp" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
