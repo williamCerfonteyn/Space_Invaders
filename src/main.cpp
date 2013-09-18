@@ -34,7 +34,25 @@
 
 #include <boost/signals2.hpp>
 #include <boost/utility/singleton.hpp>
+/*
+enum names_for_my_conditions {CONDITION_ONE = 0001, CONDITION_TWO = 0010, CONDITION_THREE = 0100};
 
+void add_another_condition_and_check_if_all_three_conditions_are_true(names_for_my_conditions bit_condition)
+{
+    //Ek weet static is bad, maar dis net 'n quick example! xD
+    static all_bit_conditions_that_are_true_currently = all_bit_conditions_that_are_true_currently | bit_condition;
+
+    all_three_conditions_are_true = 0111;
+
+    if(all_three_conditions_are_true & all_bit_conditions_that_are_true_currently)
+        cout << "All three the conditions are currently true!";
+
+    //In this case, this if will be true!
+
+    //Implementation: add_another_condition(CONDITION_ONE);
+    //                add_another_condition(CONDITION_TWO | CONDITION_THREE);
+}
+*/
 //#include "GameSignals.h"
 
 ///DO_NOT_READ_THIS!
@@ -66,9 +84,9 @@ GLuint texture[TextNum];
 SDL_Surface *surface;
 
 enum _gamemode_enum {GM_EASY, GM_HARD};
-enum player_movement_direction {P_MOVE_UP, P_MOVE_DOWN, P_MOVE_LEFT, P_MOVE_RIGHT};
+enum player_movement_direction {P_MOVE_UP, P_MOVE_DOWN, P_MOVE_LEFT, P_MOVE_RIGHT, NO_MOVEMENT};
 
-const float start_movement_speed_for_player = 1;
+const float start_movement_speed_for_player = 0.1;
 const int PLAYER_INITIAL_SIZE = 50;
 const int NPC_INITIAL_SIZE = 40;
 
@@ -239,10 +257,10 @@ void enemyProjectile::draw()
 
     glBindTexture(GL_TEXTURE_2D, texture[4]);
     glBegin(GL_QUADS);
-    glTexCoord2f(1,1); glVertex2f(size,size);
-    glTexCoord2f(0,1); glVertex2f(-size,size);
-    glTexCoord2f(1,0); glVertex2f(size,-size);
-    glTexCoord2f(0,0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,1.0); glVertex2f(size,size);
+    glTexCoord2f(0.0,1.0); glVertex2f(-size,size);
+    glTexCoord2f(0.0,0.0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,0.0); glVertex2f(size,-size);
 
     glEnd();
     glDisable(GL_BLEND);
@@ -265,11 +283,10 @@ void playerProjectile::draw()
 
     glBindTexture(GL_TEXTURE_2D, texture[3]);
     glBegin(GL_QUADS);
-    glTexCoord2f(1,1); glVertex2f(size,size);
-    glTexCoord2f(0,1); glVertex2f(-size,size);
-    glTexCoord2f(1,0); glVertex2f(size,-size);
-    glTexCoord2f(0,0); glVertex2f(-size,-size);
-
+    glTexCoord2f(1.0,1.0); glVertex2f(size,size);
+    glTexCoord2f(0.0,1.0); glVertex2f(-size,size);
+    glTexCoord2f(0.0,0.0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,0.0); glVertex2f(size,-size);
     glEnd();
     glDisable(GL_BLEND);
 }
@@ -300,21 +317,45 @@ protected:
     float positionY;
     int health; //Int?
     float size;
+    delaySome game_entity_timer;
 };
 
 class Player : public gameEntity {
 public:
-    Player(float positionX, float positionY, float size) : gameEntity(positionX,positionY,size), how_fast_player_moves_coefficient(start_movement_speed_for_player) {}
+    Player(float positionX, float positionY, float size) : gameEntity(positionX,positionY,size), how_fast_player_moves_coefficient(start_movement_speed_for_player) {player_move_dir = NO_MOVEMENT;}
     void update(float delta_time);
-    void handle_movement(float, player_movement_direction);
+    void handle_movement(player_movement_direction);
     void draw();
 protected:
     float how_fast_player_moves_coefficient;
+    player_movement_direction player_move_dir;
 };
 
 void Player::update(float delta_time)
 {
-    //UPDATES PLAYER.
+    delta_time = game_entity_timer.getDeltaTime();
+
+    switch(player_move_dir)
+    {
+        case P_MOVE_UP:
+            positionY -= delta_time*how_fast_player_moves_coefficient;
+            break;
+
+        case P_MOVE_DOWN:
+            positionY += delta_time*how_fast_player_moves_coefficient;
+            break;
+
+        case P_MOVE_LEFT:
+            positionX -= delta_time*how_fast_player_moves_coefficient;
+            break;
+
+        case P_MOVE_RIGHT:
+            positionX += delta_time*how_fast_player_moves_coefficient;
+            break;
+
+        default:
+            break;
+    }
 }
 
 void Player::draw()
@@ -327,17 +368,19 @@ void Player::draw()
 
     glBindTexture(GL_TEXTURE_2D, texture[0]);
     glBegin(GL_QUADS);
-    glTexCoord2f(1,1); glVertex2f(size,size);
-    glTexCoord2f(0,1); glVertex2f(-size,size);
-    glTexCoord2f(1,0); glVertex2f(size,-size);
-    glTexCoord2f(0,0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,1.0); glVertex2f(size,size);
+    glTexCoord2f(0.0,1.0); glVertex2f(-size,size);
+    glTexCoord2f(0.0,0.0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,0.0); glVertex2f(size,-size);
 
     glEnd();
     glDisable(GL_BLEND);
 }
 
-void Player::handle_movement(float delta_time, player_movement_direction p_move_dir)
+void Player::handle_movement(player_movement_direction p_move_dir)
 {
+    player_move_dir = p_move_dir;
+    /*
     switch(p_move_dir)
     {
         case P_MOVE_UP:
@@ -359,6 +402,7 @@ void Player::handle_movement(float delta_time, player_movement_direction p_move_
         default:
             break;
     }
+    */
 }
 
 class NPC : public gameEntity {
@@ -385,10 +429,10 @@ void NPC::draw()
 
     glBindTexture(GL_TEXTURE_2D, texture[1]);
     glBegin(GL_QUADS);
-    glTexCoord2f(1,1); glVertex2f(size,size);
-    glTexCoord2f(0,1); glVertex2f(-size,size);
-    glTexCoord2f(1,0); glVertex2f(size,-size);
-    glTexCoord2f(0,0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,1.0); glVertex2f(size,size);
+    glTexCoord2f(0.0,1.0); glVertex2f(-size,size);
+    glTexCoord2f(0.0,0.0); glVertex2f(-size,-size);
+    glTexCoord2f(1.0,0.0); glVertex2f(size,-size);
 
     glEnd();
     glDisable(GL_BLEND);
@@ -409,7 +453,7 @@ class GameController : public boost::singleton<GameController>
 		void update_projectiles();
 		void assign_slots_to_events();
 
-		typedef boost::signals2::signal< void (float, player_movement_direction) > player_movement_signal;
+		typedef boost::signals2::signal< void (player_movement_direction) > player_movement_signal;
 
 		void add_player_movement_event_function_slot( const player_movement_signal::slot_type& slot );
 		void announce_player_move(player_movement_direction p_move_direction);
@@ -432,12 +476,14 @@ void GameController::assign_slots_to_events()
 {
     //add_player_movement_event_function_slot(_player->handle_movement);
     add_player_movement_event_function_slot( boost::bind(&Player::handle_movement, _player, _1)  );
+    //_player_movement_signal.connect( boost::bind(&Player::handle_movement, _player, _1, _2) );
+
+    //_player_movement_signal.connect( boost::bind(&Player::handle_movement, Player, _1)  );
 }
 
 void GameController::announce_player_move(player_movement_direction p_move_direction)
 {
-    float delta_time = timer.getDeltaTime();
-    _player_movement_signal(delta_time, p_move_direction);
+    _player_movement_signal(p_move_direction);
 }
 
 void GameController::init(float playerX, float playerY, _gamemode_enum _gamemode)
@@ -682,10 +728,11 @@ int main ( int argc, char** argv )
     // initialize SDL video
 
    // float MXFLOATCONVERSION = 0;
+
     //initCoutRedirecting();
 
     GameController::lease game_controller;
-
+    game_controller->init(100, 100, GM_HARD);
     game_controller->assign_slots_to_events();
 
     int videoFlags;
@@ -757,8 +804,6 @@ int main ( int argc, char** argv )
     /* Resize the initial window */
     resizeWindow( SW, SH );
 
-    game_controller->init(100, 100, GM_HARD);
-
     /* wait for events */
     while ( !done )
 	{
@@ -803,7 +848,7 @@ int main ( int argc, char** argv )
 			    switch ( event.key.keysym.sym )
                 {
                     case SDLK_LEFT: case SDLK_a:
-                        game_controller->announce_player_move(P_MOVE_LEFT);
+                            game_controller->announce_player_move(P_MOVE_LEFT);
                         break;
                     case SDLK_RIGHT: case SDLK_d:
                             game_controller->announce_player_move(P_MOVE_RIGHT);
@@ -820,25 +865,41 @@ int main ( int argc, char** argv )
 
                 switch ( event.key.keysym.sym )
                 {
-                case SDLK_ESCAPE:
-                    /* ESC key was pressed */
-                    Quit( 0 );
-                    break;
-                case SDLK_F1:
-                    /* F1 key was pressed
-                    * this toggles fullscreen mode
-                    */
-                    SDL_WM_ToggleFullScreen( surface );
-                    break;
-                case SDLK_w :
-                    break;
-                default:
-                    break;
+                    case SDLK_ESCAPE:
+                        /* ESC key was pressed */
+                        Quit( 0 );
+                        break;
+                    case SDLK_F1:
+                        /* F1 key was pressed
+                        * this toggles fullscreen mode
+                        */
+                        SDL_WM_ToggleFullScreen( surface );
+                        break;
+                    case SDLK_w :
+                        break;
+                    default:
+                        break;
                 }
 			    break;
             case SDL_KEYUP:
                 //KeyUpEvents( &event.key.keysym, game_controller );
-                //Would be handled later.
+                switch( event.key.keysym.sym )
+                {
+                    case SDLK_LEFT: case SDLK_a:
+                         game_controller->announce_player_move(NO_MOVEMENT);
+                        break;
+                    case SDLK_RIGHT: case SDLK_d:
+                         game_controller->announce_player_move(NO_MOVEMENT);
+                        break;
+                    case SDLK_UP: case SDLK_w:
+                         game_controller->announce_player_move(NO_MOVEMENT);
+                        break;
+                    case SDLK_DOWN: case SDLK_s:
+                         game_controller->announce_player_move(NO_MOVEMENT);
+                        break;
+                    default:
+                        break;
+                }
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 //mouseEvents(&event);
