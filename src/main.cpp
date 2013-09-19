@@ -40,9 +40,11 @@ enum names_for_my_conditions {CONDITION_ONE = 0001, CONDITION_TWO = 0010, CONDIT
 void add_another_condition_and_check_if_all_three_conditions_are_true(names_for_my_conditions bit_condition)
 {
     //Ek weet static is bad, maar dis net 'n quick example! xD
-    static all_bit_conditions_that_are_true_currently = all_bit_conditions_that_are_true_currently | bit_condition;
+    static unsigned int all_bit_conditions_that_are_true_currently = 0000;
 
-    all_three_conditions_are_true = 0111;
+    all_bit_conditions_that_are_true_currently = all_bit_conditions_that_are_true_currently | (unsigned int) bit_condition;
+
+    unsigned int all_three_conditions_are_true = 0111;
 
     if(all_three_conditions_are_true & all_bit_conditions_that_are_true_currently)
         cout << "All three the conditions are currently true!";
@@ -87,8 +89,15 @@ enum _gamemode_enum {GM_EASY, GM_HARD};
 enum player_movement_direction {P_MOVE_UP, P_MOVE_DOWN, P_MOVE_LEFT, P_MOVE_RIGHT, NO_MOVEMENT};
 
 const float start_movement_speed_for_player = 0.1;
-const int PLAYER_INITIAL_SIZE = 50;
+const int PLAYER_INITIAL_SIZE = 30;
 const int NPC_INITIAL_SIZE = 40;
+const float how_fast_projectiles_travel_initially = 0.1;
+const int player_base_initial_damage = 5;
+const float player_start_position_x = SW/2;
+const float player_start_position_y = SH-50;
+const float initial_projectile_size = 10;
+const float correction_player_projectile_launch_y_start_cords = 15;
+const float correction_player_projectile_launch_x_start_cords = 2;
 
 //I've designed a "more advanced" texture loader in the other game, but I thought for now this would be enough.
 bool loadTextures()
@@ -218,13 +227,17 @@ class Projectile
         Projectile(float x, float y, float whereToGoX, float whereToGoY, int damage, float size) : x(x), y(y), whereToGoX(whereToGoX), whereToGoY(whereToGoY), damage(damage), size(size)
         {
             unitVect = getUnitVector(whereToGoX, x, whereToGoY, y);
+            unitVect.yComp = -unitVect.yComp;
+            how_fast_projectiles_travel = how_fast_projectiles_travel_initially;
         }
 
         void update(float delta_time)
         {
-            //Need to add coefficient for speed.
-            x += unitVect.xComp*delta_time;
-            y += unitVect.yComp*delta_time;
+            x += unitVect.xComp*delta_time*how_fast_projectiles_travel;
+            y += unitVect.yComp*delta_time*how_fast_projectiles_travel;
+
+            //cout << "X: " << x << endl;
+            //cout << "Y: " << y << endl;
         }
 
         vectorFormat getUnitVector(float,float,float,float);
@@ -234,6 +247,7 @@ class Projectile
         float whereToGoX, whereToGoY; // direction of travelling
         int damage;
         float size;
+        float how_fast_projectiles_travel;
         vectorFormat unitVect;
 
 };
@@ -309,27 +323,40 @@ vectorFormat Projectile::getUnitVector(float positionBX, float positionAX, float
 
 class gameEntity {
 public:
-    gameEntity(float positionX,float positionY, float size) : positionX(positionX), positionY(positionY), size(size) {}
+    gameEntity(float positionX,float positionY, float size) : positionX(positionX), positionY(positionY), size(size) {damage = 0;}
     void set_position(float x, float y) { positionX = x; positionY = y; }
     void set_health(int hp) { health = hp; }
+    float get_x() { return positionX; }
+    float get_y() { return positionY; }
+    float get_size() { return size; }
 protected:
     float positionX;
     float positionY;
     int health; //Int?
+    int damage;
     float size;
     delaySome game_entity_timer;
 };
 
 class Player : public gameEntity {
 public:
-    Player(float positionX, float positionY, float size) : gameEntity(positionX,positionY,size), how_fast_player_moves_coefficient(start_movement_speed_for_player) {player_move_dir = NO_MOVEMENT;}
+    Player(float positionX, float positionY, float size) : gameEntity(positionX,positionY,size), how_fast_player_moves_coefficient(start_movement_speed_for_player) {player_move_dir = NO_MOVEMENT; damage = player_base_initial_damage; player_projectile_size = initial_projectile_size;}
     void update(float delta_time);
     void handle_movement(player_movement_direction);
     void draw();
+    int get_damage_done_with_projectile();
+    float get_projectile_size() { return player_projectile_size; }
 protected:
     float how_fast_player_moves_coefficient;
+    float player_projectile_size;
     player_movement_direction player_move_dir;
 };
+
+int Player::get_damage_done_with_projectile()
+{
+    //Fancy manipulations could be done here.
+    return damage;
+}
 
 void Player::update(float delta_time)
 {
@@ -450,16 +477,22 @@ class GameController : public boost::singleton<GameController>
 		//void add_projectile(float x, float y, float dx, float dy, int damage);
 		void add_enemy_projectile(float x, float y, float dx, float dy, int damage, float);
 		void add_player_projectile(float x, float y, float dx, float dy, int damage, float);
-		void update_projectiles();
+		void update_projectiles(float);
 		void assign_slots_to_events();
 
 		typedef boost::signals2::signal< void (player_movement_direction) > player_movement_signal;
+		typedef boost::signals2::signal< void (float,float,float,float,int,float) > player_particle_launch_signal;
 
 		void add_player_movement_event_function_slot( const player_movement_signal::slot_type& slot );
+		void add_player_particle_launch_event_function_slot( const player_particle_launch_signal::slot_type& slot );
+
 		void announce_player_move(player_movement_direction p_move_direction);
+		void announce_player_particle_launch();
 
 	private:
 		player_movement_signal _player_movement_signal;
+		player_particle_launch_signal _player_particle_launch_signal;
+
         std::list<NPC*> _npcs;
         delaySome timer;
         std::list<enemyProjectile> enemy_projectiles;
@@ -472,10 +505,18 @@ void GameController::add_player_movement_event_function_slot( const player_movem
     _player_movement_signal.connect(slot);
 }
 
+void GameController::add_player_particle_launch_event_function_slot( const player_particle_launch_signal::slot_type& slot )
+{
+    _player_particle_launch_signal.connect(slot);
+}
+
 void GameController::assign_slots_to_events()
 {
     //add_player_movement_event_function_slot(_player->handle_movement);
-    add_player_movement_event_function_slot( boost::bind(&Player::handle_movement, _player, _1)  );
+    add_player_movement_event_function_slot( boost::bind(&Player::handle_movement, _player, _1) );
+
+    add_player_particle_launch_event_function_slot( boost::bind(&GameController::add_player_projectile, this, _1, _2, _3, _4, _5, _6) );
+
     //_player_movement_signal.connect( boost::bind(&Player::handle_movement, _player, _1, _2) );
 
     //_player_movement_signal.connect( boost::bind(&Player::handle_movement, Player, _1)  );
@@ -484,6 +525,15 @@ void GameController::assign_slots_to_events()
 void GameController::announce_player_move(player_movement_direction p_move_direction)
 {
     _player_movement_signal(p_move_direction);
+}
+
+void GameController::announce_player_particle_launch()
+{
+    int screen_height = SH; ///ASSIGNED FROM THE GLOBAL VARIABLE SCREEN HEIGHT.
+
+    //So that the projectile is launched in a verticle line. Dynamic, so that it could be changed later, if need be.
+    _player_particle_launch_signal(_player->get_x()-correction_player_projectile_launch_x_start_cords, _player->get_y()-correction_player_projectile_launch_y_start_cords, _player->get_x()-correction_player_projectile_launch_x_start_cords, (float)screen_height, _player->get_damage_done_with_projectile(), _player->get_projectile_size());
+
 }
 
 void GameController::init(float playerX, float playerY, _gamemode_enum _gamemode)
@@ -530,6 +580,8 @@ void GameController::update()
         (*it)->draw(); // draw the latest NPC state.
     }
 
+    update_projectiles(delta_time);
+
     SDL_GL_SwapBuffers( );
 }
 
@@ -538,23 +590,23 @@ void GameController::collision_detection(float delta_time)
     // Check whether the player collided with any of the enemies.
             // If player collided with enemy, player->lose_health( enemy->get_dmg() );
 
-     // Check whether the player collided with any of the powerups
+     // Check whether the player collided with any of the powerups.
     // If player collided with powerups, player->add_health( powerup->get_boost() );
 }
 
-void GameController::add_enemy_projectile(float x, float y, float dx, float dy, int damage, float size)
+void GameController::add_enemy_projectile(float x, float y, float where_to_to_x, float where_to_to_y, int damage, float size)
 {
-    enemy_projectiles.push_back( enemyProjectile(x,y,dx,dy,damage, size) );
+    enemy_projectiles.push_back( enemyProjectile(x,y,where_to_to_x,where_to_to_y,damage, size) );
 }
 
-void GameController::add_player_projectile(float x, float y, float dx, float dy, int damage, float size)
+void GameController::add_player_projectile(float x, float y, float where_to_to_x, float where_to_to_y, int damage, float size)
 {
-    player_projectiles.push_back( playerProjectile(x,y,dx,dy,damage, size) );
+    player_projectiles.push_back( playerProjectile(x,y,where_to_to_x,where_to_to_y,damage, size) );
 }
 
-void GameController::update_projectiles()
+void GameController::update_projectiles(float delta_time)
 {
-    float delta_time = timer.getDeltaTime();
+    //float delta_time = timer.getDeltaTime();
 
     std::list<enemyProjectile>::iterator e_it;
     std::list<playerProjectile>::iterator p_it;
@@ -562,12 +614,14 @@ void GameController::update_projectiles()
     for (e_it = enemy_projectiles.begin(); e_it != enemy_projectiles.end(); ++e_it)
     {
         e_it->update(delta_time); // run the projectile’s update function.
+        e_it->draw();
         // Each projectile can potentially have different ways to update itself. Some can move in a straight line, others can zig zag, move in an arch, or circles, or even home in on the player.
     }
 
     for (p_it = player_projectiles.begin(); p_it != player_projectiles.end(); ++p_it)
     {
         p_it->update(delta_time); // run the projectile’s update function.
+        p_it->draw();
         // Each projectile can potentially have different ways to update itself. Some can move in a straight line, others can zig zag, move in an arch, or circles, or even home in on the player.
     }
 }
@@ -732,7 +786,7 @@ int main ( int argc, char** argv )
     //initCoutRedirecting();
 
     GameController::lease game_controller;
-    game_controller->init(100, 100, GM_HARD);
+    game_controller->init(player_start_position_x, player_start_position_y, GM_HARD);
     game_controller->assign_slots_to_events();
 
     int videoFlags;
@@ -859,6 +913,9 @@ int main ( int argc, char** argv )
                     case SDLK_DOWN: case SDLK_s:
                             game_controller->announce_player_move(P_MOVE_DOWN);
                         break;
+                    case SDLK_LCTRL:
+                            game_controller->announce_player_particle_launch();
+                        break;
                     default:
                         break;
                 }
@@ -922,6 +979,7 @@ int main ( int argc, char** argv )
 
             //game_controller->update_projectiles();
             game_controller->update();
+            //game_controller->update_projectiles();
             //game_controller->spawn_enemy();
 
             //SDL_GL_SwapBuffers( );
